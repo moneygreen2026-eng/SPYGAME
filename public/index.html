@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🕵️ Шпион</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --border: #222222;
+    --accent: #c8ff00;
+    --accent2: #ff3b3b;
+    --text: #e8e8e0;
+    --muted: #555;
+    --spy: #ff3b3b;
+    --civ: #c8ff00;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px);
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  header {
+    width: 100%;
+    padding: 24px 40px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+  }
+
+  .logo span { color: var(--text); }
+
+  main {
+    width: 100%;
+    max-width: 560px;
+    padding: 40px 20px;
+    flex: 1;
+  }
+
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 32px;
+    margin-bottom: 16px;
+  }
+
+  .card-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.2rem;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+
+  /* ── Inputs ── */
+  .field { margin-bottom: 16px; }
+  .field label {
+    display: block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+
+  input[type="text"], input[type="number"], select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.95rem;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  input:focus, select:focus { border-color: var(--accent); }
+
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 24px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+    width: 100%;
+  }
+  .btn-primary:hover { background: #d9ff1a; transform: translateY(-1px); }
+
+  .btn-danger {
+    background: var(--accent2);
+    color: #fff;
+    width: 100%;
+  }
+  .btn-danger:hover { background: #ff5555; }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    width: 100%;
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  .btn-small {
+    padding: 6px 14px;
+    font-size: 0.75rem;
+    width: auto;
+  }
+
+  .btn + .btn { margin-top: 8px; }
+
+  /* ── Divider ── */
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 20px 0;
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+  }
+  .divider::before, .divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  /* ── Room code ── */
+  .room-code {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 3.5rem;
+    letter-spacing: 0.3em;
+    color: var(--accent);
+    text-align: center;
+    padding: 20px 0;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .room-code:hover { opacity: 0.7; }
+  .code-hint {
+    text-align: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-top: -12px;
+    margin-bottom: 16px;
+  }
+
+  /* ── Player list ── */
+  .players-list { list-style: none; }
+  .players-list li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.85rem;
+  }
+  .players-list li:last-child { border-bottom: none; }
+  .player-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+  }
+  .host-badge {
+    margin-left: auto;
+    font-size: 0.65rem;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 1px 6px;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── Settings sliders ── */
+  .setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  .setting-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .setting-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.4rem;
+    color: var(--accent);
+    min-width: 30px;
+    text-align: center;
+  }
+  .step-btn {
+    width: 28px; height: 28px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: border-color 0.15s;
+  }
+  .step-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Role card ── */
+  .role-reveal {
+    text-align: center;
+    padding: 40px 20px;
+  }
+  .role-icon { font-size: 4rem; margin-bottom: 16px; }
+  .role-label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1rem;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .role-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 3rem;
+    letter-spacing: 0.1em;
+    margin-bottom: 24px;
+  }
+  .role-title.spy { color: var(--spy); }
+  .role-title.civ { color: var(--civ); }
+
+  .location-reveal {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 20px;
+    margin: 20px 0;
+  }
+  .location-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .location-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    letter-spacing: 0.05em;
+    color: var(--text);
+  }
+
+  /* ── Timer ── */
+  .timer-display {
+    text-align: center;
+    margin: 20px 0;
+  }
+  .timer-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 5rem;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    line-height: 1;
+    transition: color 0.3s;
+  }
+  .timer-value.urgent { color: var(--accent2); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+  /* ── Locations editor ── */
+  .locations-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 12px 0;
+  }
+  .loc-tag {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    cursor: default;
+  }
+  .loc-remove {
+    cursor: pointer;
+    color: var(--accent2);
+    font-size: 0.9rem;
+    line-height: 1;
+  }
+  .loc-remove:hover { opacity: 0.7; }
+  .loc-add-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .loc-add-row input { flex: 1; }
+
+  /* ── Vote panel ── */
+  .vote-section {
+    background: var(--bg);
+    border: 1px solid var(--accent2);
+    padding: 20px;
+    margin: 16px 0;
+    animation: slideIn 0.3s ease;
+  }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+  .vote-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.3rem;
+    color: var(--accent2);
+    letter-spacing: 0.1em;
+    margin-bottom: 12px;
+  }
+  .vote-target {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--text);
+    margin-bottom: 16px;
+  }
+  .vote-btns { display: flex; gap: 8px; }
+  .vote-btns .btn { flex: 1; }
+
+  /* ── Notification ── */
+  .notif {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    padding: 12px 24px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8rem;
+    z-index: 9999;
+    animation: fadeIn 0.2s ease;
+    max-width: 90vw;
+    text-align: center;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateX(-50%) translateY(10px); } }
+
+  /* ── End screen ── */
+  .end-reveal { text-align: center; padding: 32px 0; }
+  .end-icon { font-size: 3rem; margin-bottom: 16px; }
+  .end-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.5rem;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .spy-reveal {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .spy-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.5rem;
+    color: var(--spy);
+    letter-spacing: 0.05em;
+  }
+
+  /* ── Tabs ── */
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+  .tab {
+    flex: 1;
+    padding: 10px;
+    text-align: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    cursor: pointer;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ── Vote selector ── */
+  .vote-player-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+  .vote-player-btn {
+    padding: 6px 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .vote-player-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+  .vote-player-btn.selected { background: var(--accent2); color: #fff; border-color: var(--accent2); }
+
+  /* Locations list hint */
+  .spy-locations {
+    text-align: left;
+    margin-top: 16px;
+  }
+  .spy-locations .location-label { margin-bottom: 10px; }
+  .spy-locations-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .spy-loc-item {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+
+  .hidden { display: none !important; }
+
+  @media (max-width: 480px) {
+    header { padding: 16px 20px; }
+    main { padding: 20px 12px; }
+    .card { padding: 20px; }
+    .room-code { font-size: 2.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🕵️ <span>Шпион</span></div>
+</header>
+
+<main>
+
+  <!-- HOME -->
+  <div class="screen active" id="screen-home">
+    <div class="card">
+      <div class="card-title">Начать игру</div>
+      <div class="field">
+        <label>Ваше имя</label>
+        <input type="text" id="home-name" placeholder="Введите имя" maxlength="18">
+      </div>
+      <button class="btn btn-primary" onclick="createRoom()">Создать комнату</button>
+      <div class="divider">или</div>
+      <div class="field">
+        <label>Код комнаты</label>
+        <input type="text" id="home-code" placeholder="XXXXX" maxlength="5" style="text-transform:uppercase">
+      </div>
+      <button class="btn btn-ghost" onclick="joinRoom()">Войти в комнату</button>
+    </div>
+  </div>
+
+  <!-- LOBBY -->
+  <div class="screen" id="screen-lobby">
+    <div class="card">
+      <div class="card-title">Код комнаты</div>
+      <div class="room-code" id="lobby-code" onclick="copyCode()" title="Нажмите чтобы скопировать"></div>
+      <div class="code-hint">нажмите чтобы скопировать</div>
+
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('players')">Игроки</div>
+        <div class="tab" onclick="switchTab('settings')">Настройки</div>
+        <div class="tab" onclick="switchTab('locations')">Места</div>
+      </div>
+
+      <!-- Players tab -->
+      <div id="tab-players">
+        <div class="card-title">Игроки</div>
+        <ul class="players-list" id="lobby-players"></ul>
+      </div>
+
+      <!-- Settings tab (host only) -->
+      <div id="tab-settings" class="hidden">
+        <div class="card-title">Настройки</div>
+        <div class="setting-row">
+          <div class="setting-label">Максимум игроков</div>
+          <div class="setting-controls">
+            <button class="step-btn" onclick="adjustSetting('maxPlayers',-1)">−</button>
+            <div class="setting-value" id="set-maxPlayers">8</div>
+            <button class="step-btn" onclick="adjustSetting('maxPlayers',1)">+</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">Количество шпионов</div>
+          <div class="setting-controls">
+            <button class="step-btn" onclick="adjustSetting('spyCount',-1)">−</button>
+            <div class="setting-value" id="set-spyCount">1</div>
+            <button class="step-btn" onclick="adjustSetting('spyCount',1)">+</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">Время (минут)</div>
+          <div class="setting-controls">
+            <button class="step-btn" onclick="adjustSetting('duration',-1)">−</button>
+            <div class="setting-value" id="set-duration">8</div>
+            <button class="step-btn" onclick="adjustSetting('duration',1)">+</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Locations tab -->
+      <div id="tab-locations" class="hidden">
+        <div class="card-title">Список мест</div>
+        <div class="locations-grid" id="locations-grid"></div>
+        <div class="loc-add-row" id="loc-add-row">
+          <input type="text" id="loc-input" placeholder="Добавить место..." maxlength="30">
+          <button class="btn btn-ghost btn-small" onclick="addLocation()">Добавить</button>
+        </div>
+      </div>
+
+      <div style="margin-top: 20px;">
+        <button class="btn btn-primary" id="start-btn" onclick="startGame()">Начать игру</button>
+        <button class="btn btn-ghost" style="margin-top:8px" onclick="goHome()">Выйти</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAME -->
+  <div class="screen" id="screen-game">
+    <div class="card">
+      <div class="role-reveal" id="role-reveal">
+        <div class="role-icon" id="role-icon"></div>
+        <div class="role-label">Ваша роль</div>
+        <div class="role-title" id="role-title"></div>
+        <div class="location-reveal" id="location-box">
+          <div class="location-label">📍 Место встречи</div>
+          <div class="location-name" id="location-name"></div>
+        </div>
+        <div class="spy-locations hidden" id="spy-locations-box">
+          <div class="location-label">🗺 Возможные места</div>
+          <div class="spy-locations-grid" id="spy-locations-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="timer-display">
+        <div class="role-label">Оставшееся время</div>
+        <div class="timer-value" id="timer-display">00:00</div>
+      </div>
+    </div>
+
+    <div class="card" id="vote-call-card">
+      <div class="card-title">Действия</div>
+      <div class="vote-player-list" id="vote-player-list"></div>
+      <button class="btn btn-danger" id="vote-call-btn" onclick="callVote()" disabled>Голосовать за подозреваемого</button>
+    </div>
+
+    <div class="vote-section hidden" id="vote-section">
+      <div class="vote-title">⚠ Голосование</div>
+      <div class="vote-target" id="vote-target"></div>
+      <div id="vote-progress" style="font-family:'IBM Plex Mono',monospace;font-size:0.75rem;color:var(--muted);margin-bottom:12px;"></div>
+      <div class="vote-btns" id="vote-btns">
+        <button class="btn btn-danger btn-small" onclick="castVote('guilty')">Виновен</button>
+        <button class="btn btn-ghost btn-small" onclick="castVote('innocent')">Невиновен</button>
+      </div>
+    </div>
+
+    <div class="card" id="host-controls" style="display:none;">
+      <button class="btn btn-danger" onclick="endGame()">Завершить игру</button>
+    </div>
+  </div>
+
+  <!-- END -->
+  <div class="screen" id="screen-end">
+    <div class="card">
+      <div class="end-reveal">
+        <div class="end-icon">🔍</div>
+        <div class="end-title">Игра окончена</div>
+        <div class="spy-reveal">Шпион(ы):</div>
+        <div class="spy-name" id="end-spies"></div>
+        <div style="margin-top:12px;">
+          <div class="location-label">Место было:</div>
+          <div class="location-name" id="end-location" style="margin-top:6px;"></div>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="restart-btn" onclick="restartGame()" style="display:none;">Новая игра (та же комната)</button>
+      <button class="btn btn-ghost" onclick="goHome()">На главную</button>
+    </div>
+  </div>
+
+</main>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+
+let myRoom = null;
+let myName = '';
+let isHost = false;
+let myRole = null;
+let selectedVoteTarget = null;
+let hasVoted = false;
+let currentSettings = { maxPlayers: 8, spyCount: 1, duration: 8 };
+let currentLocations = [];
+let currentPlayers = [];
+
+// ── Screens ──
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', ['players','settings','locations'][i] === tab);
+  });
+  document.getElementById('tab-players').classList.toggle('hidden', tab !== 'players');
+  document.getElementById('tab-settings').classList.toggle('hidden', tab !== 'settings');
+  document.getElementById('tab-locations').classList.toggle('hidden', tab !== 'locations');
+}
+
+// ── Home actions ──
+function createRoom() {
+  const name = document.getElementById('home-name').value.trim();
+  if (!name) return notify('Введите имя');
+  myName = name;
+  socket.emit('createRoom', { playerName: name });
+}
+
+function joinRoom() {
+  const name = document.getElementById('home-name').value.trim();
+  const code = document.getElementById('home-code').value.trim().toUpperCase();
+  if (!name) return notify('Введите имя');
+  if (!code) return notify('Введите код комнаты');
+  myName = name;
+  socket.emit('joinRoom', { code, playerName: name });
+}
+
+function goHome() {
+  myRoom = null; isHost = false; myRole = null;
+  hasVoted = false; selectedVoteTarget = null;
+  showScreen('home');
+}
+
+// ── Lobby ──
+function renderLobby(room) {
+  myRoom = room.code;
+  isHost = room.host === socket.id;
+  currentSettings = room.settings;
+  currentLocations = room.locations;
+  currentPlayers = room.players;
+
+  document.getElementById('lobby-code').textContent = room.code;
+
+  // Players
+  const ul = document.getElementById('lobby-players');
+  ul.innerHTML = room.players.map(p => `
+    <li>
+      <div class="player-dot"></div>
+      ${escHtml(p.name)}
+      ${p.id === room.host ? '<span class="host-badge">HOST</span>' : ''}
+    </li>
+  `).join('');
+
+  // Settings (host only editable)
+  updateSettingDisplay();
+
+  // Start button (host only)
+  document.getElementById('start-btn').style.display = isHost ? '' : 'none';
+
+  // Locations
+  renderLocations();
+
+  // Show/hide loc add for host
+  document.getElementById('loc-add-row').classList.toggle('hidden', !isHost);
+
+  showScreen('lobby');
+}
+
+function updateSettingDisplay() {
+  document.getElementById('set-maxPlayers').textContent = currentSettings.maxPlayers;
+  document.getElementById('set-spyCount').textContent = currentSettings.spyCount;
+  document.getElementById('set-duration').textContent = currentSettings.duration;
+}
+
+function adjustSetting(key, delta) {
+  if (!isHost) return;
+  const limits = { maxPlayers: [3, 15], spyCount: [1, 5], duration: [1, 30] };
+  const [min, max] = limits[key];
+  currentSettings[key] = Math.max(min, Math.min(max, currentSettings[key] + delta));
+  updateSettingDisplay();
+  socket.emit('updateSettings', { settings: currentSettings });
+}
+
+function renderLocations() {
+  const grid = document.getElementById('locations-grid');
+  grid.innerHTML = currentLocations.map((loc, i) => `
+    <div class="loc-tag">
+      ${escHtml(loc)}
+      ${isHost ? `<span class="loc-remove" onclick="removeLocation(${i})">×</span>` : ''}
+    </div>
+  `).join('');
+}
+
+function addLocation() {
+  const input = document.getElementById('loc-input');
+  const val = input.value.trim();
+  if (!val) return;
+  if (currentLocations.includes(val)) return notify('Место уже есть в списке');
+  currentLocations.push(val);
+  input.value = '';
+  renderLocations();
+  socket.emit('updateLocations', { locations: currentLocations });
+}
+
+function removeLocation(i) {
+  if (currentLocations.length <= 1) return notify('Нужно хотя бы одно место');
+  currentLocations.splice(i, 1);
+  renderLocations();
+  socket.emit('updateLocations', { locations: currentLocations });
+}
+
+document.getElementById('loc-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addLocation();
+});
+
+function copyCode() {
+  navigator.clipboard.writeText(myRoom).then(() => notify('Код скопирован: ' + myRoom));
+}
+
+function startGame() {
+  socket.emit('startGame');
+}
+
+// ── Game ──
+function renderGame(data) {
+  myRole = data.role;
+  const isSpy = data.role === 'spy';
+
+  document.getElementById('role-icon').textContent = isSpy ? '🕵️' : '🧑‍💼';
+  document.getElementById('role-title').textContent = isSpy ? 'ШПИОН' : 'МИРНЫЙ';
+  document.getElementById('role-title').className = 'role-title ' + (isSpy ? 'spy' : 'civ');
+
+  document.getElementById('location-box').classList.toggle('hidden', isSpy);
+  document.getElementById('spy-locations-box').classList.toggle('hidden', !isSpy);
+
+  if (!isSpy) {
+    document.getElementById('location-name').textContent = data.location;
+  } else {
+    const grid = document.getElementById('spy-locations-list');
+    grid.innerHTML = (data.locations || []).map(l => `<div class="spy-loc-item">${escHtml(l)}</div>`).join('');
+  }
+
+  // Players vote list
+  const vl = document.getElementById('vote-player-list');
+  vl.innerHTML = data.players.map(name => {
+    if (name === myName) return '';
+    return `<button class="vote-player-btn" onclick="selectVoteTarget('${escHtml(name)}', this)">${escHtml(name)}</button>`;
+  }).join('');
+
+  document.getElementById('host-controls').style.display = isHost ? '' : 'none';
+
+  hasVoted = false;
+  selectedVoteTarget = null;
+  document.getElementById('vote-section').classList.add('hidden');
+
+  setTimer(data.duration * 60);
+  showScreen('game');
+}
+
+let timerInterval = null;
+function setTimer(seconds) {
+  clearInterval(timerInterval);
+  renderTimer(seconds);
+}
+
+function renderTimer(s) {
+  const el = document.getElementById('timer-display');
+  const m = Math.floor(s / 60).toString().padStart(2, '0');
+  const sec = (s % 60).toString().padStart(2, '0');
+  el.textContent = `${m}:${sec}`;
+  el.classList.toggle('urgent', s <= 60);
+}
+
+function selectVoteTarget(name, btn) {
+  selectedVoteTarget = name;
+  document.querySelectorAll('.vote-player-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  document.getElementById('vote-call-btn').disabled = false;
+}
+
+function callVote() {
+  if (!selectedVoteTarget) return notify('Выберите подозреваемого');
+  socket.emit('callVote', { targetName: selectedVoteTarget });
+}
+
+function castVote(v) {
+  if (hasVoted) return;
+  hasVoted = true;
+  document.getElementById('vote-btns').innerHTML = '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:0.8rem;color:var(--muted);">Ваш голос учтён</span>';
+  socket.emit('castVote', { targetName: document.getElementById('vote-target').dataset.target, vote: v });
+}
+
+function endGame() { socket.emit('endGame'); }
+
+function restartGame() {
+  socket.emit('restartGame');
+}
+
+// ── Socket events ──
+socket.on('roomCreated', ({ code, room }) => {
+  renderLobby(room);
+});
+
+socket.on('roomJoined', ({ room }) => {
+  renderLobby(room);
+});
+
+socket.on('playerJoined', ({ room }) => {
+  currentPlayers = room.players;
+  renderLobby(room);
+  notify(room.players[room.players.length - 1].name + ' присоединился');
+});
+
+socket.on('playerLeft', ({ playerName, room }) => {
+  currentPlayers = room.players;
+  renderLobby(room);
+  notify(playerName + ' вышел из игры');
+});
+
+socket.on('youAreHost', () => {
+  isHost = true;
+  notify('Вы теперь хост комнаты');
+  renderLobby({ code: myRoom, players: currentPlayers, settings: currentSettings, locations: currentLocations, host: socket.id, state: 'lobby' });
+});
+
+socket.on('settingsUpdated', ({ settings }) => {
+  currentSettings = settings;
+  updateSettingDisplay();
+});
+
+socket.on('locationsUpdated', ({ locations }) => {
+  currentLocations = locations;
+  renderLocations();
+});
+
+socket.on('gameStarted', (data) => {
+  renderGame(data);
+});
+
+socket.on('timerTick', ({ timeLeft }) => {
+  renderTimer(timeLeft);
+});
+
+socket.on('voteStarted', ({ callerName, targetName, players }) => {
+  const vs = document.getElementById('vote-section');
+  const vt = document.getElementById('vote-target');
+  vt.textContent = `${callerName} обвиняет: ${targetName}`;
+  vt.dataset.target = targetName;
+  document.getElementById('vote-progress').textContent = '';
+  hasVoted = false;
+  document.getElementById('vote-btns').innerHTML = `
+    <button class="btn btn-danger btn-small" onclick="castVote('guilty')">Виновен</button>
+    <button class="btn btn-ghost btn-small" onclick="castVote('innocent')">Невиновен</button>
+  `;
+  vs.classList.remove('hidden');
+  notify('⚠ Началось голосование!');
+});
+
+socket.on('voteProgress', ({ voted, total }) => {
+  document.getElementById('vote-progress').textContent = `Проголосовали: ${voted} / ${total}`;
+});
+
+socket.on('voteResult', ({ targetName, guilty, innocent, total }) => {
+  document.getElementById('vote-section').classList.add('hidden');
+  notify(`Голосование: ${targetName} — виновен ${guilty}, невиновен ${innocent}`);
+});
+
+socket.on('timeUp', ({ location, spies }) => {
+  clearInterval(timerInterval);
+  document.getElementById('end-location').textContent = location;
+  document.getElementById('end-spies').textContent = spies.join(', ') || '(нет)';
+  document.getElementById('restart-btn').style.display = isHost ? '' : 'none';
+  showScreen('end');
+});
+
+socket.on('gameRestarted', ({ room }) => {
+  clearInterval(timerInterval);
+  renderLobby(room);
+  notify('Игра сброшена. Можно начинать заново!');
+});
+
+socket.on('error', (msg) => notify('❌ ' + msg));
+
+// ── Utilities ──
+function notify(msg) {
+  const old = document.querySelector('.notif');
+  if (old) old.remove();
+  const el = document.createElement('div');
+  el.className = 'notif';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+function escHtml(str) {
+  return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+}
+
+// Enter key on home
+document.getElementById('home-name').addEventListener('keydown', e => {
+  if (e.key === 'Enter') createRoom();
+});
+document.getElementById('home-code').addEventListener('keydown', e => {
+  if (e.key === 'Enter') joinRoom();
+  document.getElementById('home-code').value = document.getElementById('home-code').value.toUpperCase();
+});
+</script>
+</body>
+</html>
